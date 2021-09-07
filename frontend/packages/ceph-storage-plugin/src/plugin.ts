@@ -21,6 +21,7 @@ import { NodeModel } from '@console/internal/models';
 import { LSO_DEVICE_DISCOVERY } from '@console/local-storage-operator-plugin/src/plugin';
 import { OCS_ATTACHED_DEVICES_FLAG } from '@console/local-storage-operator-plugin/src/features';
 import * as models from './models';
+import * as mockModels from './mock-models';
 import { getCephHealthState } from './components/dashboards/persistent-internal/status-card/utils';
 import { isClusterExpandActivity } from './components/dashboards/persistent-internal/activity-card/cluster-expand-activity';
 import { StorageClassFormProvisoners } from './utils/ocs-storage-class-params';
@@ -37,7 +38,9 @@ import {
   detectManagedODF,
   detectComponents,
 } from './features';
+import { ODF_MODEL_FLAG } from './constants';
 import { getObcStatusGroups } from './components/dashboards/object-service/buckets-card/utils';
+import { STORAGE_CLUSTER_SYSTEM_KIND } from './constants/create-storage-system';
 
 type ConsumedExtensions =
   | ModelFeatureFlag
@@ -60,7 +63,6 @@ const blockPoolRef = referenceForModel(models.CephBlockPoolModel);
 const storageSystemGvk = referenceForModel(models.StorageSystemModel);
 
 const OCS_MODEL_FLAG = 'OCS_MODEL';
-const ODF_MODEL_FLAG = 'ODF_MODEL';
 
 const plugin: Plugin<ConsumedExtensions> = [
   {
@@ -116,7 +118,16 @@ const plugin: Plugin<ConsumedExtensions> = [
       detect: detectManagedODF,
     },
     flags: {
-      required: [OCS_FLAG],
+      required: [OCS_MODEL_FLAG],
+    },
+  },
+  {
+    type: 'FeatureFlag/Custom',
+    properties: {
+      detect: detectManagedODF,
+    },
+    flags: {
+      required: [ODF_MODEL_FLAG],
     },
   },
   {
@@ -456,12 +467,38 @@ const plugin: Plugin<ConsumedExtensions> = [
       },
     },
   },
+  {
+    type: 'ClusterServiceVersion/Action',
+    properties: {
+      id: 'add-capacity',
+      kind: models.StorageSystemModel.kind,
+      label: '%ceph-storage-plugin~Add Capacity%',
+      apiGroup: models.StorageSystemModel.apiGroup,
+      hidden: (kind, obj) => {
+        if (obj.spec.kind !== STORAGE_CLUSTER_SYSTEM_KIND) {
+          return true;
+        }
+        return false;
+      },
+      callback: (kind, obj) => () => {
+        const props = { storageSystem: obj };
+        import(
+          './components/modals/add-capacity-modal/add-capacity-modal' /* webpackChunkName: "ceph-storage-add-capacity-modal" */
+        )
+          .then((m) => m.addSSCapacityModal(props))
+          .catch((e) => {
+            // eslint-disable-next-line no-console
+            console.error('Error loading Add Capacity Modal', e);
+          });
+      },
+    },
+  },
   // Adding this Extension because dynamic endpoint is not avbl
   // Todo(bipuladh): Remove once SDK is mature enough to support list page
   {
     type: 'HorizontalNavTab',
     properties: {
-      model: models.StorageSystemModel,
+      model: mockModels.StorageSystemMockModel,
       page: {
         name: '%ceph-storage-plugin~Storage Systems%',
         href: 'systems',
@@ -479,7 +516,7 @@ const plugin: Plugin<ConsumedExtensions> = [
   {
     type: 'HorizontalNavTab',
     properties: {
-      model: models.StorageSystemModel,
+      model: mockModels.StorageSystemMockModel,
       page: {
         // t('ceph-storage-plugin~Backing Store')
         name: '%ceph-storage-plugin~Backing Store%',
@@ -498,7 +535,7 @@ const plugin: Plugin<ConsumedExtensions> = [
   {
     type: 'HorizontalNavTab',
     properties: {
-      model: models.StorageSystemModel,
+      model: mockModels.StorageSystemMockModel,
       page: {
         // t('ceph-storage-plugin~Bucket Class')
         name: '%ceph-storage-plugin~Bucket Class%',
@@ -517,7 +554,7 @@ const plugin: Plugin<ConsumedExtensions> = [
   {
     type: 'HorizontalNavTab',
     properties: {
-      model: models.StorageSystemModel,
+      model: mockModels.StorageSystemMockModel,
       page: {
         // t('ceph-storage-plugin~Namespace Store')
         name: '%ceph-storage-plugin~Namespace Store%',
